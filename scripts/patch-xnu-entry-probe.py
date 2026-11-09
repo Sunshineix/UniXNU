@@ -140,7 +140,11 @@ def kernel_symbols(kernel):
     for line in subprocess.run([nm, '-n', kernel], capture_output=True, text=True, check=True).stdout.splitlines():
         parts = line.split()
         if len(parts) == 3:
-            table.setdefault(int(parts[0], 16), parts[2])
+            try:
+                table.setdefault(int(parts[0], 16), parts[2])
+            except ValueError:
+                # Older llvm-nm prints per-entry headers like 'Symbols for com.apple.kernel:'.
+                continue
     return table
 
 
