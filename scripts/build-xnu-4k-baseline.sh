@@ -597,6 +597,14 @@ if [ "${XNU_SOURCE_CORECRYPTO14:-0}" = 1 ] && [ "$BOOTSTRAP" = 0 ]; then
   test -f "$CRYPTO_ARCHIVE"
   KERNEL_EXTRA_ARCHIVES="-L$KERNEL_SDKROOT/usr/local/lib/kernel -lfirehose_kernel $CRYPTO_ARCHIVE"
   KERNEL_ARCHIVE_DEPENDENCIES=$CRYPTO_ARCHIVE
+  # XnuPrelink requires a 32-byte __TEXT,__fips_hmacs field in the native kernel. In the source
+  # crypto mode the fipspost_post archive member provides it; in the prelinked mode nothing
+  # references that member so it is never pulled. Create the empty field at link time; the
+  # prelink seals it with the relocated-text HMAC.
+  FIPS_HMAC=$ROOT/build/fips-post/hmac.zeros
+  mkdir -p "$(dirname "$FIPS_HMAC")"
+  head -c 32 /dev/zero > "$FIPS_HMAC"
+  KERNEL_EXTRA_ARCHIVES="$KERNEL_EXTRA_ARCHIVES -Wl,-sectcreate,__TEXT,__fips_hmacs,$FIPS_HMAC"
   if [ "$ADRENO_FIRMWARE_PROBE" = 1 ]; then
     ADRENO_PROBE_ARCHIVE=$ROOT/build/adreno-firmware-probe/libAdrenoFirmwareProbe.a
     test -f "$ADRENO_PROBE_ARCHIVE"
