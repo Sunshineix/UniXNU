@@ -7,6 +7,7 @@ import shutil
 import hashlib
 import argparse
 import fnmatch
+import sys
 from pathlib import Path
 import subprocess
 
@@ -123,6 +124,16 @@ def main():
                                         *map(str,archives),*(f'-Wl,-force_load,{p}' for p in forced)]),
         'XNU_EXTERNAL_KERNEL_ARCHIVES='+' '.join(map(str,archives+forced)),
         f'OBJROOT={output}/{mode}-obj',f'SYMROOT={output}/{mode}-sym',f'DSTROOT={output}/{mode}-dst']
+    if sys.platform != 'darwin':
+        # Same Linux host facts the baseline script passes; without them MakeInc.cmd
+        # computes an empty CPU count and dies in its wordlist functions.
+        args += ['TIGHTBEAMC=tightbeamc-not-supported', 'BUILD_DSYM=0',
+                 f'MEMORY_SIZE={os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE")}',
+                 f'SYSCTL_HW_PHYSICALCPU={os.cpu_count()}', f'SYSCTL_HW_LOGICALCPU={os.cpu_count()}']
+        clt = Path(os.environ.get('CLT_PREFIX', '/opt/unixnu-linux/CommandLineTools/usr'))
+        env.update(PLATFORM='iPhoneOS', HOST_CC=str(clt / 'bin/xnu-host-cc'),
+                   MIGCOM=str(clt / 'libexec/migcom'))
+        env['PATH'] = f"{clt / 'bin'}:{os.environ.get('PATH', '')}"
     (output/f'{mode}-command.json').write_text(json.dumps(args,indent=2)+'\n')
     with (output/f'{mode}-build.log').open('w') as log:
         result = subprocess.run(args,cwd=root,env=env,stdout=log,stderr=subprocess.STDOUT)
