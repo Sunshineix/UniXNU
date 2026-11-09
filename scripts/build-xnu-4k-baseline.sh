@@ -816,6 +816,9 @@ if not stamp.exists() or stamp.read_text() != identity:
     directory.mkdir(parents=True, exist_ok=True)
     stamp.write_text(identity)
 PY
+# non-Apple clang takes __ptrauth with at most 3 arguments; Apple clang accepts a 4th string.
+grep -rl "authenticates-null-values" .cache/xnu-work --include="*.h" 2>/dev/null \
+  | xargs -r sed -i 's|, "authenticates-null-values")|)|' || true
 EXTRA_CFLAGS="$EXTRA_CFLAGS -DXNU_BOOT_PROGRESS=$BOOT_PROGRESS"
 make -C .cache/xnu-work "${XNU_BUILD_TARGET:-build}" SDKROOT="${XNU_SDKROOT:-iphoneos}" ARCH_CONFIGS=ARM64 \
   MACHINE_CONFIGS=BCM2837 KERNEL_CONFIGS=DEVELOPMENT \

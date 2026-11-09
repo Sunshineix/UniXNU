@@ -29,6 +29,10 @@ if [ "$(uname -s)" = Linux ]; then
   # private header (installed through unifdef with COPY_HEADERS_UNIFDEF_FLAGS); symbols stay external, as
   # Xcode's GCC_SYMBOLS_PRIVATE_EXTERN=NO leaves them.
   FAKEROOT=$ROOT/.cache/fakeroot
+  # non-Apple clang takes __ptrauth with at most 3 arguments; drop the
+  # "authenticates-null-values" string Apple clang accepts as a 4th.
+  sed -i 's|, "authenticates-null-values")|)|' \
+    "$FAKEROOT/System/Library/Frameworks/Kernel.framework/PrivateHeaders/os/base.h"
   WORK=.cache/libdispatch-work
   mkdir -p build/firehose/obj "$FAKEROOT/usr/local/lib/kernel" "$FAKEROOT/usr/local/include/kernel/os"
   xcrun --sdk iphoneos clang -target "$ARCH-apple-ios$IOS_VERSION" -std=gnu11 -Os -g \
