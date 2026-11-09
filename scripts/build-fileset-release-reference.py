@@ -122,6 +122,8 @@ def main():
         'copyio.o_CFLAGS_ADD=-march=armv8.1-a','pcb.o_CFLAGS_ADD=-march=armv8.1-a',
         'LD_KERNEL_ARCHIVES='+' '.join([f'-L{sdk}/usr/local/lib/kernel','-lfirehose_kernel',
                                         *map(str,archives),*(f'-Wl,-force_load,{p}' for p in forced)]),
+        # The PGO profile runtime the DEVELOPMENT link takes from LD_KERNEL_LIBS (libcc_kext.a).
+        f'LD_KERNEL_LIBS={sdk}/usr/local/lib/kernel/libcc_kext.a',
         'XNU_EXTERNAL_KERNEL_ARCHIVES='+' '.join(map(str,archives+forced)),
         f'OBJROOT={output}/{mode}-obj',f'SYMROOT={output}/{mode}-sym',f'DSTROOT={output}/{mode}-dst']
     if sys.platform != 'darwin':
