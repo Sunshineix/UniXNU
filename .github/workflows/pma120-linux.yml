@@ -1,0 +1,77 @@
+name: Linux build
+
+on:
+  workflow_dispatch:
+    inputs:
+      device_repository:
+        description: Device repository as owner/name
+        required: true
+        default: Sunshineix/UniXNU-pma120
+      device_ref:
+        description: Device repository ref
+        required: true
+        default: main
+      defconfig:
+        description: Defconfig name (configs/ of the device repository)
+        required: true
+        default: pma120_ipados27_defconfig
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 350
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo apt-get clean
+          df -h /
+
+      - name: Checkout UniXNU
+        uses: actions/checkout@v4
+        with:
+          repository: UniXNU/UniXNU
+          path: unixnu
+
+      - name: Checkout device
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ inputs.device_repository }}
+          ref: ${{ inputs.device_ref }}
+          path: device
+
+      - name: Cache the Linux toolchain
+        uses: actions/cache@v4
+        with:
+          path: /opt/unixnu-linux
+          key: unixnu-toolchain-${{ runner.os }}-${{ hashFiles('unixnu/scripts/linux/setup-toolchain.py') }}
+
+      - name: Install the Linux toolchain
+        run: |
+          if [ ! -x /opt/unixnu-linux/llvm/bin/clang ]; then
+            sudo python3 unixnu/scripts/linux/setup-toolchain.py
+          fi
+          ls -l /opt/unixnu-linux/llvm/bin/clang || true
+
+      - name: Build the kernel
+        run: |
+          cd unixnu
+          ./unixnu defconfig "${{ inputs.defconfig }}" -D ../device
+          ./unixnu fetch
+          ./unixnu build kernel -j "$(nproc)"
+
+      - name: Tail the logs
+        if: always()
+        run: |
+          find unixnu/out -name '*.log' -type f 2>/dev/null | head -20 | while read f; do echo "=== $f ==="; tail -n 120 "$f"; done
+
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs
+          path: unixnu/out/**/logs/**
+          if-no-files-found: ignore
