@@ -185,6 +185,10 @@ if [ "$CRYPTO_BOOTSTRAP_MODE" = prelinked ]; then
   # Only this source-provider entry is omitted; no POST or missing-provider
   # failure is suppressed, and no replacement crypto callbacks are supplied.
   EXTRA_MAKE_ARGS+=("prng_random.o_CFLAGS_ADD=-UXNU_SOURCE_CORECRYPTO14")
+  # OSKext source-provider special case is source-mode only as well; without its
+  # own -U it would reference the omitted symbols and the kernel link would fail.
+  EXTRA_MAKE_ARGS+=("OSKext.cpo_CFLAGS_ADD=-UXNU_SOURCE_CORECRYPTO14")
+  rm -f "$ROOT/build/xnu/ios-obj/DEVELOPMENT_ARM64_BCM2837/libkern/DEVELOPMENT/OSKext.cpo"
 else
   EXTRA_MAKE_ARGS+=("prng_random.o_CFLAGS_ADD=")
 fi
