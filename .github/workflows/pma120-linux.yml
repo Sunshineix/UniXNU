@@ -15,6 +15,11 @@ on:
         description: Defconfig name (configs/ of the device repository)
         required: true
         default: pma120_ipados27_defconfig
+      steps:
+        description: What to build after the kernel
+        type: choice
+        options: [kernel, kernel payload, kernel payload bootimg]
+        default: kernel
 
 permissions:
   contents: read
@@ -55,7 +60,6 @@ jobs:
           if [ ! -x /opt/unixnu-linux/llvm/bin/clang ]; then
             sudo python3 unixnu/scripts/linux/setup-toolchain.py
           fi
-          ls -l /opt/unixnu-linux/llvm/bin/clang || true
 
       - name: Build the kernel
         run: |
@@ -63,6 +67,44 @@ jobs:
           ./unixnu defconfig "${{ inputs.defconfig }}" -D ../device
           ./unixnu fetch
           ./unixnu build kernel -j "$(nproc)"
+
+      - name: Upload the kernel
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel
+          path: unixnu/out/**/kernel/**
+          if-no-files-found: ignore
+
+      - name: Fetch the OS inputs
+        if: always() && inputs.steps != 'kernel'
+        run: |
+          cd unixnu
+          ./unixnu ipsw fetch DeviceTree StaticTrustCache Cryptex1,SystemTrustCache
+
+      - name: Build the payload
+        if: always() && inputs.steps != 'kernel'
+        run: |
+          cd unixnu
+          ./unixnu build payload \
+            --unique-chip-id 0x0123456789abcdef \
+            --trust-cache "$(ls out/ipsw/*/*.trustcache | head -1)" || true
+
+      - name: Pack the boot image
+        if: always() && inputs.steps == 'kernel payload bootimg'
+        run: |
+          cd unixnu
+          ./unixnu bootimg || true
+
+      - name: Upload payload and boot
+        if: always() && inputs.steps != 'kernel'
+        uses: actions/upload-artifact@v4
+        with:
+          name: payload
+          path: |
+            unixnu/out/**/payload/**
+            unixnu/out/**/boot/**
+          if-no-files-found: ignore
 
       - name: Tail the logs
         if: always()
